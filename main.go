@@ -12,6 +12,7 @@ var upgrader = websocket.Upgrader{} // For upgrading regular HTTP connections to
 type Message struct {
 	Type       string `json:"type"`
 	IsGroupMsg bool   `json:"isGroupMsg"`
+	Group      string `json:"group"`
 	To         string `json:"to"`
 	Content    string `json:"content"`
 	From       string `json:"From"`
@@ -54,7 +55,29 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 			} else {
 				forwardDirectMsg(&msg)
 			}
+		} else if msg.Type == "cmd" {
+			if msg.Content == "create group" {
+				createGroup(&msg)
+			} else if msg.Content == "join group" {
+				joinGroup(&msg)
+			}
 		}
+	}
+}
+
+func createGroup(msg *Message) {
+	if _, ok := groups[msg.Group]; ok {
+		println("Group already present.")
+	} else {
+		groups[msg.Group] = append(groups[msg.Group], msg.From)
+	}
+}
+
+func joinGroup(msg *Message) {
+	if _, ok := groups[msg.Group]; !ok {
+		println("Group doesn't exist: ", msg.Group)
+	} else {
+		groups[msg.Group] = append(groups[msg.Group], msg.From)
 	}
 }
 
@@ -69,21 +92,31 @@ func forwardDirectMsg(msg *Message) {
 }
 
 func forwardGroupMsg(msg *Message) {
-	// Broadcast to all other clients
-	// for client := range clients {
-	// 	if client != conn { // Skip sending to self
-	// 		newMsg := Message{
-	// 			Type:    "message",
-	// 			From:    msg.From,
-	// 			Content: msg.Content,
-	// 		}
-	// 		err := client.WriteJSON(newMsg)
-	// 		if err != nil {
-	// 			fmt.Println(err)
-	// 			delete(clients, client)
-	// 		}
-	// 	}
-	// }
+	if _, ok := groups[msg.Group]; !ok {
+		fmt.Println("Group doesn't exist: ", msg.Group)
+		return
+	}
+	group := groups[msg.Group]
+	flag := false
+	for _, i := range group {
+		if i == msg.From {
+			flag = true
+		}
+	}
+	if !flag {
+		fmt.Println(msg.From, " not belong to Group: ", msg.Group)
+		return
+	}
+
+	for _, client := range groups[msg.Group] {
+		if client != msg.From { // Skip sending to self
+			err := clients[client].WriteJSON(msg)
+			if err != nil {
+				fmt.Println(err)
+				delete(clients, client)
+			}
+		}
+	}
 }
 
 func main() {
