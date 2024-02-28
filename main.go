@@ -19,6 +19,8 @@ type Message struct {
 
 var clients = make(map[string]*websocket.Conn) // To store client connections with usernames
 
+var groups = make(map[string][]string)
+
 func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 	conn, err := upgrader.Upgrade(w, r, nil) // Upgrade connection
 	if err != nil {
@@ -46,15 +48,17 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 			break
 		}
 
-		if initMsg.IsGroupMsg {
-			forwardGroupMsg(msg)
-		} else {
-			forwardDirectMsg(msg)
+		if msg.Type == "message" {
+			if msg.IsGroupMsg {
+				forwardGroupMsg(&msg)
+			} else {
+				forwardDirectMsg(&msg)
+			}
 		}
 	}
 }
 
-func forwardDirectMsg(msg Message) {
+func forwardDirectMsg(msg *Message) {
 	if _, ok := clients[msg.To]; ok {
 		err := clients[msg.To].WriteJSON(msg)
 		if err != nil {
@@ -64,7 +68,7 @@ func forwardDirectMsg(msg Message) {
 	}
 }
 
-func forwardGroupMsg(msg Message) {
+func forwardGroupMsg(msg *Message) {
 	// Broadcast to all other clients
 	// for client := range clients {
 	// 	if client != conn { // Skip sending to self
