@@ -1,1 +1,1 @@
-# Vault Client
+# Vault Server
