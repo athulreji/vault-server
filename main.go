@@ -7,14 +7,15 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-var upgrader = websocket.Upgrader{} // For upgrading regular HTTP connections to WebSocket
+var upgrader = websocket.Upgrader{ReadBufferSize: 4096, WriteBufferSize: 4096} // For upgrading regular HTTP connections to WebSocket
 
 type Message struct {
 	Type       string `json:"type"`
 	IsGroupMsg bool   `json:"isGroupMsg"`
-	Group      string `json:"group"`
+	Group      string `json:"group,omitempty"`
 	To         string `json:"to"`
 	Content    string `json:"content"`
+	FileData   []byte `json:"fileData,omitempty"`
 	From       string `json:"From"`
 }
 
@@ -39,6 +40,7 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 	}
 
 	clients[initMsg.From] = conn // Register client with username
+	fmt.Println(initMsg.From, " joined")
 
 	for {
 		var msg Message
@@ -49,7 +51,7 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 			break
 		}
 
-		if msg.Type == "message" {
+		if msg.Type == "message" || msg.Type == "file" {
 			if msg.IsGroupMsg {
 				forwardGroupMsg(&msg)
 			} else {
