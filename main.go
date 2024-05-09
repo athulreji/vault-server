@@ -63,6 +63,17 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 			} else if msg.Content == "join group" {
 				joinGroup(&msg)
 			}
+		} else if msg.Type == "keys" {
+			StoreKeys(msg.From, msg.Content)
+
+			if len(clients) > 1 {
+				msg.Type = "getKey"
+				msg.Content = SendStore()
+				for i := range clients {
+					msg.To = i
+					forwardDirectMsg(&msg)
+				}
+			}
 		}
 	}
 }
